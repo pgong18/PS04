@@ -1,14 +1,17 @@
 ---
-title: "STAT/MATH 495: Problem Set 04"
-author: "WRITE YOUR NAME HERE"
-date: "2017-10-03"
+title: 'STAT/MATH 495: Problem Set 04'
+author: "Pei Gong"
+date: '2017-10-03'
 output:
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
   html_document:
-    toc: true
-    toc_float: true
+    collapsed: no
+    smooth_scroll: no
+    toc: yes
     toc_depth: 2
-    collapsed: false
-    smooth_scroll: false
+    toc_float: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -16,10 +19,7 @@ knitr::opts_chunk$set(echo = TRUE, fig.width=8, fig.height=4.5, message=FALSE)
 set.seed(76)
 ```
 
-# Collaboration
-
-Please indicate who you collaborated with on this assignment:
-
+##Collaborated with Tim Lee
 
 # Load packages, data, model formulas
 
@@ -53,19 +53,38 @@ credit_test <- credit %>%
   anti_join(credit_train, by="ID")
 ```
 
-
-# RMSE vs number of coefficients
+# RMSE vs number of coefficients 
 
 ```{r, echo=TRUE, warning=FALSE, message=FALSE}
 # Placeholder vectors of length 7. For now, I've filled them with arbitrary 
 # values; you will fill these in
-RMSE_train <- runif(n=7)
 RMSE_test <- runif(n=7)
-
-
+RMSE_train<- runif(n=7)
 # Do your work here:
+```
 
 
+##Fitting the 7 models on the credit_train dataset. 
+
+```{r}
+for(i in 1:7){
+  model_lm <- lm(get(paste0("model", i, "_formula")), data = credit_train)
+  y_hat_test <- predict(model_lm, newdata = credit_test)
+  y_hat_train <- predict(model_lm, newdata = credit_train)
+
+  model_test <- credit_test %>% mutate(y_hat_test) 
+  model_train <- credit_train %>% mutate(y_hat_train) 
+  
+  RMSE_test[i] <- model_test%>% summarise(MSE = mean((Balance-y_hat_test)^2)) %>% mutate(RMSE = sqrt(MSE)) %>% pull(RMSE) 
+  RMSE_train[i] <- model_train%>% summarise(MSE = mean((Balance-y_hat_train)^2)) %>% mutate(RMSE = sqrt(MSE)) %>% pull(RMSE)
+}
+
+```
+
+
+
+
+```{r}
 # Save results in a data frame. Note this data frame is in wide format.
 results <- data_frame(
   num_coefficients = 1:7,
@@ -94,7 +113,13 @@ ggplot(results, aes(x=num_coefficients, y=RMSE, col=type)) +
 
 Compare and contrast the two curves and hypothesize as to the root cause of any differences.
 
+Overall, the two curves exemplifies similar patterns but differs in the following ways.It is a classic case of underfitting if the training set is only 20 out of 400.   
 
+1) value of RMSE is the highest at 1 coefficient. Test data has a high RSME value fo training data throughout the 1 to 7 coefficients despite the 380 data points. It is the because that the model is fitted based on the training data, which is only 20 data points, therefore conform better with the training data than the test data. I hypothesize that the difference will be less sustantial if we increase the data points for training.  
+
+2) value of RMSE drops sharply from 2 coefficients to 3 coefficients with value of test RMSE drops slightly more than train RMSE. Because test has more data points, increase in the amount of explanatory variables will have a larger impact on RMSE. 
+
+3) value of RMSE test increase after 3 coefficients while keeps on decreasing for test. This implies that cofficients more than 3 are overfitting for the test data thus not helping with explaining the overall model.  
 
 # Bonus
 
@@ -102,6 +127,61 @@ Repeat the whole process, but let `credit_train` be a random sample of size 380
 from `credit` instead of 20. Now compare and contrast this graph with the
 one above and hypothesize as to the root cause of any differences.
 
-```{r, echo=FALSE}
+```{r}
+set.seed(79)
+credit_train <- credit %>% 
+  sample_n(380)
+credit_test <- credit %>% 
+  anti_join(credit_train, by="ID")
+```
+
+##Identical code hidden for calculating RMSE_test and RMSE_train as well as the ggplot 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Placeholder vectors of length 7. For now, I've filled them with arbitrary 
+# values; you will fill these in
+RMSE_test <- runif(n=7)
+RMSE_train<- runif(n=7)
+# Do your work here:
+```
+
+
+```{r,echo=FALSE}
+for(i in 1:7){
+  model_lm <- lm(get(paste0("model", i, "_formula")), data = credit_train)
+  y_hat_test <- predict(model_lm, newdata = credit_test)
+  y_hat_train <- predict(model_lm, newdata = credit_train)
+
+  model_test <- credit_test %>% mutate(y_hat_test) 
+  model_train <- credit_train %>% mutate(y_hat_train) 
+  
+  RMSE_test[i] <- model_test%>% summarise(MSE = mean((Balance-y_hat_test)^2)) %>% mutate(RMSE = sqrt(MSE)) %>% pull(RMSE) 
+  RMSE_train[i] <- model_train%>% summarise(MSE = mean((Balance-y_hat_train)^2)) %>% mutate(RMSE = sqrt(MSE)) %>% pull(RMSE)
+}
 
 ```
+
+```{r,echo=FALSE}
+# Save results in a data frame. Note this data frame is in wide format.
+results <- data_frame(
+  num_coefficients = 1:7,
+  RMSE_train,
+  RMSE_test
+) 
+
+# Some cleaning of results
+results <- results %>% 
+  # More intuitive names:
+  rename(
+    `Training data` = RMSE_train,
+    `Test data` = RMSE_test
+  ) %>% 
+  # Convert results data frame to "tidy" data format i.e. long format, so that we
+  # can ggplot it
+  gather(type, RMSE, -num_coefficients)
+
+ggplot(results, aes(x=num_coefficients, y=RMSE, col=type)) +
+  geom_line() + 
+  labs(x="# of coefficients", y="RMSE", col="Data used to evaluate \nperformance of fitted model")
+```
+Compare with the graph above, the difference between the test and training curve decreases in comparison with the previous graph.This is a classical example of underfitting. For the training data, the RMSE keeps decreasing with the increase in # of coefficients. What is different compared to the first graph is that the test data is has lower RMSE score than training data for # of coefficient >3. This is because for training data with 380 observations, it already captured majority of the variability of the data. For a small test data of 20, it will be able to predict a good job. 
